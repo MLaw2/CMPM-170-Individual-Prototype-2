@@ -42,6 +42,14 @@ let seedSpawnCooldown;
  */
 let plants;
 
+/**
+ * @typedef {{
+ * timer: number,
+ * timer_increment: number,
+ * }}
+ */
+let doom;
+
 const G = {
 	WIDTH: 100,
 	HEIGHT: 75,
@@ -49,12 +57,14 @@ const G = {
 	PLAYER_RUN_SPEED: 1,
 
 	PLANT_GROW_RATE: 1,
+	PLANT_STARTING_HEIGHT: 1,
 
 	SEED_SPAWN_RATE: 90,
 	SEED_SPEED_MIN: 0.5,
 	SEED_SPEED_MAX: 1.0,
 
 	DOOM_TIMER: 100,
+	DOOM_INCREMENT: 10,
 	
 	// RAIN_DROP_RATE: 1,
 	// RAIN_FALL_SPEED: 1,
@@ -111,6 +121,11 @@ function update() {
 		}
 
 		plants = [];
+
+		doom = {
+			timer: G.DOOM_TIMER,
+			timer_increment: G.DOOM_INCREMENT,
+		};
 	}
 
 	// draw the player
@@ -156,8 +171,8 @@ function update() {
 	});
 
 	// handle seed removal
-	remove(seeds, (plant)=>{
-		const isCollidingWithPlayer = char("b",plant.pos).isColliding.char.a;
+	remove(seeds, (seed)=>{
+		const isCollidingWithPlayer = char("b",seed.pos).isColliding.char.a;
 		if(isCollidingWithPlayer && input.isJustPressed && player.item != "seed"){
 			play("select");
 		}
@@ -166,16 +181,16 @@ function update() {
 
 	// plant player interaction check
 	color("cyan")
-	const isCollidingWithPlant = char("a", player.pos).isColliding.char.b;
+	const isCollidingWithSeed = char("a", player.pos).isColliding.char.b;
 	if(input.isJustPressed){
-		if(isCollidingWithPlant){
+		if(isCollidingWithSeed){
 			player.item = "seed";
 		}
 		else if(player.item == "seed"){
 			// PLANT SEED IN EMPTY SPOT
 			plants.push({
 				pos: vec(player.pos.x, 69),
-				height: 0,
+				height: G.PLANT_STARTING_HEIGHT,
 				speed: G.PLANT_GROW_RATE + (1/difficulty),
 				limit: 30,
 			})
@@ -192,4 +207,29 @@ function update() {
 		color("light_red");
 		box(plant.pos.x, plant.pos.y - plant.height/2, 5, plant.height);
 	})
+
+	remove(plants, (plant)=>{
+		const isCollidingWithPlayer = box(plant.pos.x, plant.pos.y - plant.height/2, 5, plant.height).isColliding.char.a;
+		if(isCollidingWithPlayer&& player.item == "" && input.isJustPressed){
+			play("powerUp");
+			addScore(plant.height ^ 1.1);
+			doom.timer += (plant.height^1.1)/6;
+			doom.timer_increment = G.DOOM_INCREMENT;
+		}
+		return (isCollidingWithPlayer && player.item == "" && input.isJustPressed);
+	})
+
+
+	// Lose condition: Doom Timer reaches 0!
+	color("black");
+	text("famine: "+doom.timer, 3, 10);
+	doom.timer_increment--;
+	if(doom.timer_increment <= 0){
+		doom.timer--;
+		if(doom.timer < 0){
+			play("explosion");
+			end();
+		}
+		doom.timer_increment = G.DOOM_INCREMENT;
+	}
 }
